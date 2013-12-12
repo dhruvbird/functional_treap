@@ -1,5 +1,6 @@
 #include "treap.h"
 #include <iostream>
+#include <iterator>
 
 using namespace std;
 using namespace dhruvbird::functional;
@@ -32,6 +33,16 @@ int main() {
 
   cout<<"Iteration: ";
   for (auto it = t3.begin(); it != t3.end(); ++it) {
+    cout << *it << ", ";
+  }
+  cout << endl;
+
+  typedef Treap<int>::iterator iterator_type;
+
+  cout<<"Revr Iter: ";
+  auto it_end = std::reverse_iterator<iterator_type>(t3.begin());
+  for (auto it = std::reverse_iterator<iterator_type>(t3.end());
+       it != it_end; ++it) {
     cout << *it << ", ";
   }
   cout << endl;

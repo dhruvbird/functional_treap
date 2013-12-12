@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <sstream>
+#include <iterator>
 #include <assert.h>
 
 #include <iostream>
@@ -108,15 +109,17 @@ namespace dhruvbird { namespace functional {
   }
 
   template <typename T, typename LessThan=std::less<T> >
-  class TreapIterator {
+  class TreapIterator : public std::iterator<std::bidirectional_iterator_tag, const T> {
     typedef TreapNode<T> NodeType;
     typedef std::shared_ptr<NodeType> NodePtrType;
     typedef std::vector<NodePtrType> PtrsType;
     PtrsType ptrs;
+    NodePtrType root;
 
   public:
     TreapIterator() { }
-    TreapIterator(PtrsType _ptrs) : ptrs(_ptrs) { }
+    TreapIterator(PtrsType _ptrs, NodePtrType _root)
+      : ptrs(_ptrs), root(_root) { }
 
     TreapIterator& operator++() {
       assert(!ptrs.empty());
@@ -148,6 +151,56 @@ namespace dhruvbird { namespace functional {
       return *this;
     }
 
+    TreapIterator operator++(int) const {
+      TreapIterator it = *this;
+      ++*this;
+      return it;
+    }
+
+    TreapIterator& operator--() {
+      if (ptrs.empty()) {
+        auto tmp = this->root;
+        while (tmp) {
+          ptrs.push_back(tmp);
+          tmp = tmp->right;
+        }
+        return *this;
+      }
+
+      auto tmp = ptrs.back();
+      if (tmp->left.get()) {
+        tmp = tmp->left;
+        ptrs.push_back(tmp);
+        while (tmp->right.get()) {
+          tmp = tmp->right;
+          ptrs.push_back(tmp);
+        }
+        return *this;
+      }
+      if (ptrs.size() > 1) {
+        size_t ptrx = ptrs.size() - 1;
+        // Right-Child
+        while (ptrs.size() > 1 && ptrs[ptrx]->isLeftChildOf(ptrs[ptrx - 1])) {
+          --ptrx;
+          ptrs.pop_back();
+        }
+        if (ptrs.size() > 1 && ptrs[ptrx]->isRightChildOf(ptrs[ptrx - 1])) {
+          ptrs.pop_back();
+          return *this;
+        }
+      }
+      // We backed up all the way before the first node. This is an
+      // error.
+      assert(ptrs.size() != 1);
+      return *this;
+    }
+
+    TreapIterator operator--(int) const {
+      TreapIterator it = *this;
+      --*this;
+      return it;
+    }
+
     T const& operator*() const {
       return ptrs.back()->data;
     }
@@ -157,7 +210,7 @@ namespace dhruvbird { namespace functional {
     }
 
     bool operator==(TreapIterator const &rhs) const {
-      return this->ptrs == rhs.ptrs;
+      return this->ptrs == rhs.ptrs && this->root == rhs.root;
     }
 
     bool operator!=(TreapIterator const &rhs) const {
@@ -173,6 +226,11 @@ namespace dhruvbird { namespace functional {
     mutable NodePtrType root;
     size_t _size;
 
+  public:
+    typedef TreapIterator<T, LessThan> iterator;
+    typedef TreapIterator<T, LessThan> const_iterator;
+
+  private:
     NodePtrType insertNode(NodePtrType node) const {
       if (!root.get()) {
         return node;
@@ -297,12 +355,12 @@ namespace dhruvbird { namespace functional {
         ptrs.push_back(tmp);
         tmp = tmp->left;
       }
-      TreapIterator<T, LessThan> it(ptrs);
+      TreapIterator<T, LessThan> it(ptrs, this->root);
       return it;
     }
 
     TreapIterator<T, LessThan> end() const {
-      return TreapIterator<T, LessThan>();
+      return TreapIterator<T, LessThan>({ }, this->root);
     }
 
   };
