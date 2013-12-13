@@ -118,7 +118,7 @@ namespace dhruvbird { namespace functional {
 
   public:
     TreapIterator() { }
-    TreapIterator(PtrsType _ptrs, NodePtrType _root)
+    TreapIterator(PtrsType &&_ptrs, NodePtrType _root)
       : ptrs(_ptrs), root(_root) { }
 
     TreapIterator& operator++() {
@@ -317,6 +317,65 @@ namespace dhruvbird { namespace functional {
       return newTreap;
     }
 
+    bool exists(T const &key) const {
+      NodePtrType tmp = root;
+      LessThan lt;
+      while (tmp) {
+        if (lt(key, tmp->data)) {
+          tmp = tmp->left;
+        } else if (lt(tmp->data, key)) {
+          tmp = tmp->right;
+        } else {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /**
+     * The first position before which we can insert 'key' and remain
+     * sorted.
+     */
+    iterator lower_bound(T const &key) const {
+      NodePtrType tmp = root;
+      LessThan lt;
+      std::vector<NodePtrType> ptrs;
+      size_t capSize = 0;
+      while (tmp) {
+        ptrs.push_back(tmp);
+        if (!lt(tmp->data, key)) { // key <= tmp->data
+          capSize = ptrs.size();
+          tmp = tmp->left;
+        } else { // key > tmp->data
+          tmp = tmp->right;
+        }
+      }
+      ptrs.resize(capSize);
+      return iterator(std::move(ptrs), this->root);
+    }
+
+    /**
+     * The last position before which we can insert 'key' and remain
+     * sorted.
+     */
+    iterator upper_bound(T const &key) const {
+      NodePtrType tmp = root;
+      LessThan lt;
+      std::vector<NodePtrType> ptrs;
+      size_t capSize = 0;
+      while (tmp) {
+        ptrs.push_back(tmp);
+        if (lt(key, tmp->data)) { // key < tmp->data
+          capSize = ptrs.size();
+          tmp = tmp->left;
+        } else { // key >= tmp->data
+          tmp = tmp->right;
+        }
+      }
+      ptrs.resize(capSize);
+      return iterator(std::move(ptrs), this->root);
+    }
+
     std::ostream& print(std::ostream &out) const {
       this->inorder(this->root, [&out](T const &data, NodePtrType node) {
           out << data << ", ";
@@ -348,19 +407,18 @@ namespace dhruvbird { namespace functional {
       return out;
     }
 
-    TreapIterator<T, LessThan> begin() const {
+    iterator begin() const {
       std::vector<NodePtrType> ptrs;
       auto tmp = this->root;
       while (tmp) {
         ptrs.push_back(tmp);
         tmp = tmp->left;
       }
-      TreapIterator<T, LessThan> it(ptrs, this->root);
-      return it;
+      return iterator(std::move(ptrs), this->root);
     }
 
-    TreapIterator<T, LessThan> end() const {
-      return TreapIterator<T, LessThan>({ }, this->root);
+    iterator end() const {
+      return iterator({ }, this->root);
     }
 
   };
