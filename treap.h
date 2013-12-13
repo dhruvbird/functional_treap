@@ -47,6 +47,9 @@ namespace dhruvbird { namespace functional {
     }
   };
 
+  /**
+   * Rotate 'node' left around its 'parent'.
+   */
   template <typename T>
   void rotateLeft(std::shared_ptr<TreapNode<T> > &node,
                   std::shared_ptr<TreapNode<T> > &parent,
@@ -68,6 +71,9 @@ namespace dhruvbird { namespace functional {
     node.swap(parent);
   }
 
+  /**
+   * Rotate 'node' right around its 'parent'.
+   */
   template <typename T>
   void rotateRight(std::shared_ptr<TreapNode<T> > &node,
                    std::shared_ptr<TreapNode<T> > &parent,
@@ -88,6 +94,9 @@ namespace dhruvbird { namespace functional {
     node.swap(parent);
   }
 
+  /**
+   * Rotate 'node' up (left or right) around its 'parent'.
+   */
   template <typename T>
   void rotateUp(std::shared_ptr<TreapNode<T> > &node,
                 std::shared_ptr<TreapNode<T> > &parent,
@@ -113,6 +122,19 @@ namespace dhruvbird { namespace functional {
     typedef TreapNode<T> NodeType;
     typedef std::shared_ptr<NodeType> NodePtrType;
     typedef std::vector<NodePtrType> PtrsType;
+    // 'ptrs' stores all node pointers from root up to the current
+    // node, following both the left and right children. It doesn't
+    // matter which child we follow since finding the successor
+    // [operator++] or the predecessor [operator--] can be done
+    // entirely by looking at the current node and the path from the
+    // root to this node, all of which are stored in 'ptrs'.
+    //
+    // Storing 'ptrs' allows us to achieve amortized O(1) cost of
+    // iterating over the whole collection. If we re-computed the path
+    // from the root to the current node every time we wanted to visit
+    // the parent node, we would have to incur a cost of O(n log n) to
+    // iterate over the entire collection.
+    //
     PtrsType ptrs;
     NodePtrType root;
 
