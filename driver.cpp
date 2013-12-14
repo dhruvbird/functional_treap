@@ -1,10 +1,16 @@
 #include "treap.h"
 #include <iostream>
 #include <iterator>
+#include <algorithm>
 #include <assert.h>
 
 using namespace std;
 using namespace dhruvbird::functional;
+
+template <typename T>
+std::vector<typename T::value_type> vector_of(T const &t) {
+  return std::vector<typename T::value_type>();
+}
 
 int main() {
   Treap<int> t;
@@ -80,5 +86,26 @@ int main() {
 
   assert(!t3.exists(401));
   assert(!t3.exists(1001));
+
+  auto t4 = t3.erase(201);
+  cout << "[Size: " << t4.size() << "] ";
+  t4.print(cout) << std::endl;
+
+  // Remove all the even valued elements from 't3'
+  {
+    auto toErase = vector_of(t3);
+    std::copy_if(t3.begin(), t3.end(), std::back_inserter(toErase),
+		 [](int x) { return !(x % 2); });
+    auto t5 = t3;
+    for (auto x : toErase) {
+      t5 = t5.erase(x);
+    }
+    cout << "[Size: " << t5.size() << "] ";
+    t5.print(cout) << std::endl;
+  }
+
+  cout<<"t3 -->\n";
+  cout << "[Size: " << t3.size() << "] ";
+  t3.print(cout) << std::endl;
 
 }

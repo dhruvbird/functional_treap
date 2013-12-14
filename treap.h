@@ -16,6 +16,9 @@ namespace dhruvbird { namespace functional {
     LEFT, RIGHT
   };
 
+  template <typename T, typename LessThan>
+  class Treap;
+
   template <typename T>
   struct TreapNode {
     T data;
@@ -137,6 +140,15 @@ namespace dhruvbird { namespace functional {
     //
     PtrsType ptrs;
     NodePtrType root;
+    friend class Treap<T, LessThan>;
+
+    /**
+     * Returns the current state of the iterator. i.e. The path from
+     * the root node to the current node.
+     */
+    PtrsType& getRootToNodePtrs() {
+      return this->ptrs;
+    }
 
   public:
     TreapIterator() { }
@@ -251,6 +263,7 @@ namespace dhruvbird { namespace functional {
   public:
     typedef TreapIterator<T, LessThan> iterator;
     typedef TreapIterator<T, LessThan> const_iterator;
+    typedef T value_type;
 
   private:
     NodePtrType insertNode(NodePtrType node) const {
@@ -306,6 +319,103 @@ namespace dhruvbird { namespace functional {
       return ptrs[0];
     }
 
+    std::vector<NodePtrType>
+    clonePtrs(std::vector<NodePtrType> &ptrs) const {
+      std::vector<NodePtrType> clonedPtrs;
+      assert(!ptrs.empty());
+      clonedPtrs.reserve(ptrs.size());
+      clonedPtrs.push_back(ptrs[0]->clone());
+      for (size_t i = 1; i < ptrs.size(); ++i) {
+        clonedPtrs.push_back(ptrs[i]->clone());
+        if (ptrs[i]->isLeftChildOf(ptrs[i-1])) {
+          clonedPtrs[i-1]->left = clonedPtrs[i];
+        } else {
+          clonedPtrs[i-1]->right = clonedPtrs[i];
+        }
+      }
+      return clonedPtrs;
+    }
+
+    NodePtrType deleteRootNode() const {
+      auto newRoot = this->root;
+      if (!newRoot->right) {
+        newRoot = newRoot->left;
+      } else if (!newRoot->left) {
+        newRoot = newRoot->right;
+      } else {
+        Treap t(this->root);
+        auto parts = t.deleteAndGetBegin();
+        parts.first->left = this->root->left;
+        parts.first->right = parts.second;
+        newRoot = parts.first;
+      }
+      return newRoot;
+    }
+
+    std::pair<NodePtrType /* begin */, NodePtrType /* rest */>
+    deleteAndGetBegin() const {
+      auto first = this->begin();
+      auto succPtr = first.getRootToNodePtrs().back()->clone();
+      auto newRoot = this->deleteIterator(first);
+      return std::make_pair(succPtr, newRoot);
+    }
+
+    NodePtrType deleteIterator(iterator &it) const {
+      auto ptrs = this->clonePtrs(it.getRootToNodePtrs());
+      assert(!ptrs.empty());
+
+      if (ptrs.size() == 1) { // Delete the root node
+        return this->deleteRootNode();
+      }
+
+      auto parPtr = ptrs[ptrs.size() - 2];
+      auto delPtr = ptrs[ptrs.size() - 1];
+      if (!delPtr->left || !delPtr->right) {
+        if (!delPtr->left) {
+          if (delPtr->isLeftChildOf(parPtr)) {
+            parPtr->left = delPtr->right;
+          } else {
+            parPtr->right = delPtr->right;
+          }
+        } else {
+          if (delPtr->isLeftChildOf(parPtr)) {
+            parPtr->left = delPtr->left;
+          } else {
+            parPtr->right = delPtr->left;
+          }
+        }
+      } else {
+        // Has both child nodes.
+        Treap t(delPtr->right);
+        // The '_size' of 't' doesn't matter.
+        auto parts = t.deleteAndGetBegin();
+        auto succPtr = parts.first;
+        auto newRoot = parts.second;
+
+        succPtr->left = delPtr->left;
+        succPtr->right = newRoot;
+
+        if (delPtr->isLeftChildOf(parPtr)) {
+          parPtr->left = succPtr;
+        } else {
+          parPtr->right = succPtr;
+        }
+      }
+      return ptrs[0];
+    }
+
+    NodePtrType deleteKey(T const &key) const {
+      LessThan lt;
+      auto keyIt = this->lower_bound(key);
+      if (keyIt == this->end()) {
+        return this->root;
+      }
+      if (!lt(key, *keyIt) && !lt(*keyIt, key)) { // key == *keyIt
+        return this->deleteIterator(keyIt);
+      }
+      return this->root;
+    }
+
     template <typename Func>
     void inorder(NodePtrType n, Func f) const {
       // std::cout << "n.get(): " << n.get() << endl;
@@ -314,6 +424,8 @@ namespace dhruvbird { namespace functional {
       f(n->data, n);
       inorder(n->right, f);
     }
+
+    Treap(NodePtrType _root) : root(_root), _size(0) { }
 
   public:
     Treap() : _size(0) { }
@@ -336,6 +448,13 @@ namespace dhruvbird { namespace functional {
       const int heapKey = rand() % 100;
       newTreap.root = newTreap.insertNode(std::make_shared<NodeType>(data, heapKey));
       newTreap._size = this->size() + 1;
+      return newTreap;
+    }
+
+    Treap erase(T const &key) const {
+      Treap newTreap(*this);
+      newTreap.root = newTreap.deleteKey(key);
+      newTreap._size -= (newTreap.root == this->root ? 0 : 1);
       return newTreap;
     }
 
@@ -399,7 +518,7 @@ namespace dhruvbird { namespace functional {
     }
 
     std::ostream& print(std::ostream &out) const {
-      this->inorder(this->root, [&out](T const &data, NodePtrType node) {
+      this->for_each([&out](T const &data, NodePtrType node) {
           out << data << ", ";
         });
       return out;
@@ -407,7 +526,7 @@ namespace dhruvbird { namespace functional {
 
     std::ostream& toDot(std::ostream &out) const {
       out << "digraph Treap {\n";
-      this->inorder(this->root, [&out](T const &data, NodePtrType node) {
+      this->for_each([&out](T const &data, NodePtrType node) {
           std::ostringstream buff1, buff2, buff3;
           buff1 << node->data << "(" << node->heapKey << ")";
           if (node->left) {
@@ -427,6 +546,11 @@ namespace dhruvbird { namespace functional {
         });
       out << "}\n";
       return out;
+    }
+
+    template <typename Func>
+    void for_each(Func f) const {
+      this->inorder(this->root, f);
     }
 
     iterator begin() const {
