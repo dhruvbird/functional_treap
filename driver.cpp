@@ -110,7 +110,12 @@ int main() {
 
   assert(t3.exists(555));
   t4 = t3.erase(t3.find(555));
-  cout<<"t3 -->\n";
+  cout<<"t4 -->\n";
+  cout << "[Size: " << t4.size() << "] ";
+  t4.print(cout) << std::endl;
+
+  t4 = t4.update(600, 600);
+  cout<<"t4 -->\n";
   cout << "[Size: " << t4.size() << "] ";
   t4.print(cout) << std::endl;
 

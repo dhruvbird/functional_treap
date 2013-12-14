@@ -468,6 +468,24 @@ namespace dhruvbird { namespace functional {
       return newTreap;
     }
 
+    /**
+     * Update the Treap and replace oldKey with newKey. It is assumed
+     * that newKey fits in *exactly* the same place as oldKey. If not,
+     * this will violate the BST properties.
+     */
+    Treap update(T const &oldKey, T const &newKey) const {
+      assert(!LessThan()(oldKey, newKey) && !LessThan()(newKey, oldKey));
+      auto it = this->find(oldKey);
+      if (it == this->end()) {
+        return *this;
+      }
+      auto ptrs = this->clonePtrs(it.getRootToNodePtrs());
+      ptrs.back()->data = newKey;
+      Treap newTreap(ptrs[0]);
+      newTreap._size = this->size();
+      return newTreap;
+    }
+
     bool exists(T const &key) const {
       NodePtrType tmp = root;
       LessThan lt;
