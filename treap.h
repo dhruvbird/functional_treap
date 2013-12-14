@@ -259,6 +259,7 @@ namespace dhruvbird { namespace functional {
     typedef std::shared_ptr<NodeType> NodePtrType;
     mutable NodePtrType root;
     size_t _size;
+    unsigned int seed;
 
   public:
     typedef TreapIterator<T, LessThan> iterator;
@@ -425,17 +426,20 @@ namespace dhruvbird { namespace functional {
       inorder(n->right, f);
     }
 
-    Treap(NodePtrType _root) : root(_root), _size(0) { }
+    Treap(NodePtrType _root) :
+      root(_root), _size(0), seed(6781) { }
 
   public:
-    Treap() : _size(0) { }
+    Treap() : _size(0), seed(6781) { }
     Treap(Treap const &rhs) {
       this->root = rhs.root;
       this->_size = rhs._size;
+      this->seed = rhs.seed;
     }
     Treap& operator=(Treap const &rhs) {
       this->root = rhs.root;
       this->_size = rhs._size;
+      this->seed = rhs.seed;
       return *this;
     }
 
@@ -445,9 +449,11 @@ namespace dhruvbird { namespace functional {
 
     Treap insert(T const &data) const {
       Treap newTreap(*this);
-      const int heapKey = rand() % 100;
+      auto _seed = this->seed;
+      const int heapKey = rand_r(&_seed) % (this->size() * 12 + 1);
       newTreap.root = newTreap.insertNode(std::make_shared<NodeType>(data, heapKey));
       newTreap._size = this->size() + 1;
+      newTreap.seed = _seed;
       return newTreap;
     }
 
