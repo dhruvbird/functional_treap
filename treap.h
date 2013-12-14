@@ -32,11 +32,11 @@ namespace dhruvbird { namespace functional {
       : data(_data), heapKey(_heapKey),
         left(_left), right(_right) { }
 
-    bool isLeftChildOf(std::shared_ptr<TreapNode> &parent) const {
+    bool isLeftChildOf(std::shared_ptr<TreapNode> const &parent) const {
       return parent->left.get() == this;
     }
 
-    bool isRightChildOf(std::shared_ptr<TreapNode> &parent) const {
+    bool isRightChildOf(std::shared_ptr<TreapNode> const &parent) const {
       return parent->right.get() == this;
     }
 
@@ -146,7 +146,7 @@ namespace dhruvbird { namespace functional {
      * Returns the current state of the iterator. i.e. The path from
      * the root node to the current node.
      */
-    PtrsType& getRootToNodePtrs() {
+    PtrsType const& getRootToNodePtrs() const {
       return this->ptrs;
     }
 
@@ -320,7 +320,7 @@ namespace dhruvbird { namespace functional {
     }
 
     std::vector<NodePtrType>
-    clonePtrs(std::vector<NodePtrType> &ptrs) const {
+    clonePtrs(std::vector<NodePtrType> const &ptrs) const {
       std::vector<NodePtrType> clonedPtrs;
       assert(!ptrs.empty());
       clonedPtrs.reserve(ptrs.size());
@@ -360,7 +360,7 @@ namespace dhruvbird { namespace functional {
       return std::make_pair(succPtr, newRoot);
     }
 
-    NodePtrType deleteIterator(iterator &it) const {
+    NodePtrType deleteIterator(iterator const &it) const {
       auto ptrs = this->clonePtrs(it.getRootToNodePtrs());
       assert(!ptrs.empty());
 
@@ -458,6 +458,16 @@ namespace dhruvbird { namespace functional {
       return newTreap;
     }
 
+    Treap erase(iterator const &it) const {
+      assert(it != this->end());
+      assert(it.root == this->root);
+      assert(this->root.get() != nullptr);
+      Treap newTreap(*this);
+      newTreap.root = newTreap.deleteIterator(it);
+      newTreap._size -= 1;
+      return newTreap;
+    }
+
     bool exists(T const &key) const {
       NodePtrType tmp = root;
       LessThan lt;
@@ -515,6 +525,15 @@ namespace dhruvbird { namespace functional {
       }
       ptrs.resize(capSize);
       return iterator(std::move(ptrs), this->root);
+    }
+
+    iterator find(T const &key) const {
+      iterator it = this->lower_bound(key);
+      LessThan lt;
+      if (!lt(key, *it) && !lt(*it, key)) {
+        return it;
+      }
+      return this->end();
     }
 
     std::ostream& print(std::ostream &out) const {
