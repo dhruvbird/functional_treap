@@ -23,13 +23,15 @@ namespace dhruvbird { namespace functional {
   struct TreapNode {
     T data;
     int heapKey;
+    size_t subtreeSize;
     mutable std::shared_ptr<TreapNode> left, right;
 
     TreapNode(T const &_data,
               int _heapKey,
+              size_t _subtreeSize,
               std::shared_ptr<TreapNode> _left = nullptr,
               std::shared_ptr<TreapNode> _right = nullptr)
-      : data(_data), heapKey(_heapKey),
+      : data(_data), heapKey(_heapKey), subtreeSize(_subtreeSize),
         left(_left), right(_right) { }
 
     bool isLeftChildOf(std::shared_ptr<TreapNode> const &parent) const {
@@ -44,6 +46,7 @@ namespace dhruvbird { namespace functional {
       auto copy = std::make_shared<TreapNode>
         (this->data,
          this->heapKey,
+         this->subtreeSize,
          this->left,
          this->right);
       return copy;
@@ -118,6 +121,12 @@ namespace dhruvbird { namespace functional {
     } else {
       rotateLeft(node, parent, grandParent);
     }
+    // 'parent' and 'node' are now swapped. First set the size on
+    // 'node' and then on 'parent'.
+    node->subtreeSize = (node->left ? node->left->subtreeSize : 0) +
+      (node->right ? node->right->subtreeSize : 0);
+    parent->subtreeSize = (parent->left ? parent->left->subtreeSize : 0) +
+      (parent->right ? parent->right->subtreeSize : 0);
   }
 
   template <typename T, typename LessThan=std::less<T> >
@@ -258,7 +267,6 @@ namespace dhruvbird { namespace functional {
     typedef TreapNode<T> NodeType;
     typedef std::shared_ptr<NodeType> NodePtrType;
     mutable NodePtrType root;
-    size_t _size;
     unsigned int seed;
 
   public:
@@ -278,6 +286,7 @@ namespace dhruvbird { namespace functional {
       std::vector<ChildDirection> dirns;
       while (tmp) {
         ptrs.push_back(tmp->clone());
+        ptrs.back()->subtreeSize++;
         dirns.push_back(dirn);
         if (lt(node->data, tmp->data)) {
           dirn = ChildDirection::LEFT;
@@ -356,7 +365,10 @@ namespace dhruvbird { namespace functional {
     std::pair<NodePtrType /* begin */, NodePtrType /* rest */>
     deleteAndGetBegin() const {
       auto first = this->begin();
-      auto succPtr = first.getRootToNodePtrs().back()->clone();
+      auto ptrs = first.getRootToNodePtrs();
+      auto succPtr = ptrs.back()->clone();
+      succPtr->subtreeSize = 1;
+      succPtr->left = succPtr->right = nullptr;
       auto newRoot = this->deleteIterator(first);
       return std::make_pair(succPtr, newRoot);
     }
@@ -367,6 +379,10 @@ namespace dhruvbird { namespace functional {
 
       if (ptrs.size() == 1) { // Delete the root node
         return this->deleteRootNode();
+      }
+
+      for (auto &ptr : ptrs) {
+        ptr->subtreeSize--;
       }
 
       auto parPtr = ptrs[ptrs.size() - 2];
@@ -388,19 +404,25 @@ namespace dhruvbird { namespace functional {
       } else {
         // Has both child nodes.
         Treap t(delPtr->right);
-        // The '_size' of 't' doesn't matter.
         auto parts = t.deleteAndGetBegin();
         auto succPtr = parts.first;
         auto newRoot = parts.second;
 
         succPtr->left = delPtr->left;
         succPtr->right = newRoot;
+        succPtr->subtreeSize = (succPtr->left ? succPtr->left->subtreeSize : 0) +
+          (succPtr->right ? succPtr->right->subtreeSize : 0);
+
+        // FIXME: succPtr->heapKey
+        succPtr->heapKey = parPtr->heapKey;
 
         if (delPtr->isLeftChildOf(parPtr)) {
           parPtr->left = succPtr;
         } else {
           parPtr->right = succPtr;
         }
+        // No need to update parPtr->subtreeSize since it has already
+        // been decremented by 1.
       }
       return ptrs[0];
     }
@@ -427,32 +449,29 @@ namespace dhruvbird { namespace functional {
     }
 
     Treap(NodePtrType _root) :
-      root(_root), _size(0), seed(6781) { }
+      root(_root), seed(6781) { }
 
   public:
-    Treap() : _size(0), seed(6781) { }
+    Treap() : seed(6781) { }
     Treap(Treap const &rhs) {
       this->root = rhs.root;
-      this->_size = rhs._size;
       this->seed = rhs.seed;
     }
     Treap& operator=(Treap const &rhs) {
       this->root = rhs.root;
-      this->_size = rhs._size;
       this->seed = rhs.seed;
       return *this;
     }
 
     size_t size() const {
-      return this->_size;
+      return this->root ? this->root->subtreeSize : 0;
     }
 
     Treap insert(T const &data) const {
       Treap newTreap(*this);
       auto _seed = this->seed;
       const int heapKey = rand_r(&_seed) % (this->size() * 12 + 1);
-      newTreap.root = newTreap.insertNode(std::make_shared<NodeType>(data, heapKey));
-      newTreap._size = this->size() + 1;
+      newTreap.root = newTreap.insertNode(std::make_shared<NodeType>(data, heapKey, 1));
       newTreap.seed = _seed;
       return newTreap;
     }
@@ -460,7 +479,6 @@ namespace dhruvbird { namespace functional {
     Treap erase(T const &key) const {
       Treap newTreap(*this);
       newTreap.root = newTreap.deleteKey(key);
-      newTreap._size -= (newTreap.root == this->root ? 0 : 1);
       return newTreap;
     }
 
@@ -470,7 +488,6 @@ namespace dhruvbird { namespace functional {
       assert(this->root.get() != nullptr);
       Treap newTreap(*this);
       newTreap.root = newTreap.deleteIterator(it);
-      newTreap._size -= 1;
       return newTreap;
     }
 
@@ -488,7 +505,6 @@ namespace dhruvbird { namespace functional {
       auto ptrs = this->clonePtrs(it.getRootToNodePtrs());
       ptrs.back()->data = newKey;
       Treap newTreap(ptrs[0]);
-      newTreap._size = this->size();
       return newTreap;
     }
 
