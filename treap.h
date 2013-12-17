@@ -124,9 +124,9 @@ namespace dhruvbird { namespace functional {
     // 'parent' and 'node' are now swapped. First set the size on
     // 'node' and then on 'parent'.
     node->subtreeSize = (node->left ? node->left->subtreeSize : 0) +
-      (node->right ? node->right->subtreeSize : 0);
+      (node->right ? node->right->subtreeSize : 0) + 1;
     parent->subtreeSize = (parent->left ? parent->left->subtreeSize : 0) +
-      (parent->right ? parent->right->subtreeSize : 0);
+      (parent->right ? parent->right->subtreeSize : 0) + 1;
   }
 
   template <typename T, typename LessThan=std::less<T> >
@@ -411,7 +411,7 @@ namespace dhruvbird { namespace functional {
         succPtr->left = delPtr->left;
         succPtr->right = newRoot;
         succPtr->subtreeSize = (succPtr->left ? succPtr->left->subtreeSize : 0) +
-          (succPtr->right ? succPtr->right->subtreeSize : 0);
+          (succPtr->right ? succPtr->right->subtreeSize : 0) + 1;
 
         // FIXME: succPtr->heapKey
         succPtr->heapKey = parPtr->heapKey;
@@ -451,6 +451,24 @@ namespace dhruvbird { namespace functional {
     Treap(NodePtrType _root) :
       root(_root), seed(6781) { }
 
+    size_t countGte(iterator const &it) const {
+      size_t count = 0;
+      auto const &ptrs = it.getRootToNodePtrs();
+      if (ptrs.empty()) {
+        return 0;
+      }
+      count = ptrs[0]->subtreeSize;
+      for (size_t i = 1; i < ptrs.size(); ++i) {
+        if (ptrs[i]->isRightChildOf(ptrs[i-1])) {
+          // Everything to the right is kosher.
+          count -= ptrs[i-1]->subtreeSize;
+          count += ptrs[i]->subtreeSize;
+        }
+      }
+      count -= (ptrs.back()->left ? ptrs.back()->left->subtreeSize : 0);
+      return count;
+    }
+
   public:
     Treap() : seed(6781) { }
     Treap(Treap const &rhs) {
@@ -465,6 +483,11 @@ namespace dhruvbird { namespace functional {
 
     size_t size() const {
       return this->root ? this->root->subtreeSize : 0;
+    }
+
+    size_t size(iterator const &first, iterator const &last) const {
+      cout << "countGte: " << countGte(first) << ", " << countGte(last) << endl;
+      return this->countGte(first) - this->countGte(last);
     }
 
     Treap insert(T const &data) const {
@@ -587,16 +610,16 @@ namespace dhruvbird { namespace functional {
       out << "digraph Treap {\n";
       this->for_each([&out](T const &data, NodePtrType node) {
           std::ostringstream buff1, buff2, buff3;
-          buff1 << node->data << "(" << node->heapKey << ")";
+          buff1 << node->data << "(" << node->heapKey << "," << node->subtreeSize << ")";
           if (node->left) {
-            buff2 << node->left->data << "(" << node->left->heapKey << ")";
+            buff2 << node->left->data << "(" << node->left->heapKey << "," << node->left->subtreeSize << ")";
           } else {
             buff2 << node.get() << "L";
             out << "  \"" << buff2.str() << "\"[shape=point]\n";
           }
           out << "  \"" << buff1.str() << "\" -> \"" << buff2.str() << "\"[label=L]\n";
           if (node->right) {
-            buff3 << node->right->data << "(" << node->right->heapKey << ")";
+            buff3 << node->right->data << "(" << node->right->heapKey << "," << node->right->subtreeSize << ")";
           } else {
             buff3 << node.get() << "R";
             out << "  \"" << buff3.str() << "\"[shape=point]\n";

@@ -119,4 +119,13 @@ int main() {
   cout << "[Size: " << t4.size() << "] ";
   t4.print(cout) << std::endl;
 
+  {
+    auto first = t4.lower_bound(155);
+    auto last = t4.lower_bound(300);
+    cout << "[Count (" << 155 << "-" << 300 << "): "
+	 << t4.size(first, last) << "]" << endl;
+
+    t4.toDot(cout) << endl;
+  }
+
 }
