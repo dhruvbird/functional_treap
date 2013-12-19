@@ -4,6 +4,7 @@
 #include <vector>
 #include <sstream>
 #include <iterator>
+#include <set>
 #include <assert.h>
 
 #include <iostream>
@@ -486,7 +487,7 @@ namespace dhruvbird { namespace functional {
     }
 
     size_t size(iterator const &first, iterator const &last) const {
-      cout << "countGte: " << countGte(first) << ", " << countGte(last) << endl;
+      // cout << "countGte: " << countGte(first) << ", " << countGte(last) << endl;
       return this->countGte(first) - this->countGte(last);
     }
 
@@ -651,7 +652,80 @@ namespace dhruvbird { namespace functional {
 
   };
 
+  template <typename T, typename LessThan=std::less<T> >
+  class MockTreap {
+    typedef std::multiset<T, LessThan> impl_type;
+    mutable impl_type impl;
+
+  public:
+    typedef typename impl_type::const_iterator iterator;
+    typedef typename impl_type::const_iterator const_iterator;
+    typedef T value_type;
+
+    size_t size() const {
+      return this->impl.size();
+    }
+
+    size_t size(iterator const &first, iterator const &last) const {
+      return std::distance(first, last);
+    }
+
+    MockTreap insert(T const &data) const {
+      MockTreap other(*this);
+      other.insert(data);
+      return other;
+    }
+
+    MockTreap erase(T const &key) const {
+      MockTreap other(*this);
+      auto it = this->find(key);
+      if (it != this->end()) {
+        other.erase(it);
+      }
+      return other;
+    }
+
+    bool exists(T const &key) const {
+      return this->find(key) != this->end();
+    }
+
+    MockTreap update(T const &oldKey, T const &newKey) const {
+      MockTreap other(*this);
+      auto it = other.impl.find(oldKey);
+      if (it != other.impl.end()) {
+        other.impl.erase(it);
+        other.impl.insert(newKey);
+      }
+      return other;
+    }
+
+    iterator lower_bound(T const &key) const {
+      return this->impl.lower_bound(key);
+    }
+
+    iterator upper_bound(T const &key) const {
+      return this->impl.upper_bound(key);
+    }
+
+    iterator find(T const &key) const {
+      return this->impl.find(key);
+    }
+
+    template <typename Func>
+    void for_each(Func f) const {
+      for (auto it = this->begin(); it != this->end(); ++it) {
+        f(*it, nullptr);
+      }
+    }
+
+    iterator begin() const {
+      return this->impl.begin();
+    }
+
+    iterator end() const {
+      return this->impl.end();
+    }
+  };
 
 
 }}
-

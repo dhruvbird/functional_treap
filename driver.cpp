@@ -42,7 +42,7 @@ int main() {
   for (auto it = t3.begin(); it != t3.end(); ++it) {
     cout << *it << ", ";
   }
-  cout << endl;
+  cout << std::endl;
 
   typedef Treap<int>::iterator iterator_type;
 
@@ -69,16 +69,14 @@ int main() {
 
   auto it820End = t3.end();
   cout << "LB[820]..end: ";
-  for (auto it820 = t3.lower_bound(820); it820 != it820End; ++it820) {
-    cout << *it820 << ", ";
-  }
+  std::copy(t3.lower_bound(820), it820End,
+	    std::ostream_iterator<int>(cout, ", "));
   cout << endl;
 
   auto it770 = t3.upper_bound(770);
   cout << "begin..UB[770]: ";
-  for (auto it = t3.begin(); it != it770; ++it) {
-    cout << *it << ", ";
-  }
+  std::copy(t3.begin(), it770,
+	    std::ostream_iterator<int>(cout, ", "));
   cout << endl;
 
   assert(t3.exists(300));
