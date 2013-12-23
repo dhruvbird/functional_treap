@@ -1,13 +1,15 @@
 /* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-#include <new>
-#include <memory>
-#include <vector>
-#include <sstream>
-#include <iterator>
-#include <set>
-#include <assert.h>
-
+#include <algorithm>
 #include <iostream>
+#include <iterator>
+#include <memory>
+#include <new>
+#include <queue>
+#include <set>
+#include <sstream>
+#include <vector>
+
+#include <assert.h>
 #include <stdio.h>
 
 using namespace std;
@@ -129,6 +131,32 @@ namespace dhruvbird { namespace functional {
     parent->subtreeSize = (parent->left ? parent->left->subtreeSize : 0) +
       (parent->right ? parent->right->subtreeSize : 0) + 1;
   }
+
+  class RNGIterator : public std::iterator<std::forward_iterator_tag, const int> {
+    unsigned int seed;
+    int rno;
+
+  public:
+    RNGIterator (unsigned int seed_) : seed(seed_), rno(0) {
+      ++(*this);
+    }
+
+    RNGIterator& operator++() {
+      this->rno = rand_r(&this->seed);
+      return *this;
+    }
+
+    RNGIterator operator++(int) {
+      RNGIterator ret = *this;
+      ++(*this);
+      return ret;
+    }
+
+    int operator*() const {
+      return this->rno;
+    }
+
+  };
 
   template <typename T, typename LessThan=std::less<T> >
   class TreapIterator : public std::iterator<std::bidirectional_iterator_tag, const T> {
@@ -330,6 +358,45 @@ namespace dhruvbird { namespace functional {
       return ptrs[0];
     }
 
+    NodePtrType insertNodeNoClone(NodePtrType node) const {
+      if (!root.get()) {
+        return node;
+      }
+      LessThan lt;
+      NodePtrType tmp = root;
+      std::vector<NodePtrType> ptrs;
+      while (tmp) {
+        ptrs.push_back(tmp);
+        ptrs.back()->subtreeSize++;
+        if (lt(node->data, tmp->data)) {
+          tmp = tmp->left;
+        } else {
+          tmp = tmp->right;
+        }
+      }
+      tmp = ptrs.back();
+      if (lt(node->data, tmp->data)) {
+        tmp->left = node;
+      } else {
+        tmp->right = node;
+      }
+      ptrs.push_back(node);
+
+      size_t ptrx = ptrs.size() - 1;
+      // While we have node, parent, grand-parent (i.e. at least 3
+      // nodes).
+      while (ptrx > 1 && ptrs[ptrx]->heapKey < ptrs[ptrx - 1]->heapKey) {
+        rotateUp(ptrs[ptrx], ptrs[ptrx - 1], ptrs[ptrx - 2]);
+        --ptrx;
+      }
+      assert(ptrx > 0);
+      if (ptrs[ptrx]->heapKey < ptrs[ptrx - 1]->heapKey) {
+        NodePtrType grandParent;
+        rotateUp(ptrs[ptrx], ptrs[ptrx - 1], grandParent);
+      }
+      return ptrs[0];
+    }
+
     std::vector<NodePtrType>
     clonePtrs(std::vector<NodePtrType> const &ptrs) const {
       std::vector<NodePtrType> clonedPtrs;
@@ -441,6 +508,20 @@ namespace dhruvbird { namespace functional {
     }
 
     template <typename Func>
+    void levelorder(NodePtrType n, Func f) const {
+      if (!n.get()) return;
+      std::queue<NodePtrType> q;
+      q.push(n);
+      while (!q.empty()) {
+        auto top = q.front();
+        q.pop();
+        if (top->left) q.push(top->left);
+        if (top->right) q.push(top->right);
+        f(top->data, top);
+      }
+    }
+
+    template <typename Func>
     void inorder(NodePtrType n, Func f) const {
       // std::cout << "n.get(): " << n.get() << endl;
       if (!n.get()) return;
@@ -470,6 +551,68 @@ namespace dhruvbird { namespace functional {
       return count;
     }
 
+    template <typename Iter>
+    void fillNodes(Iter first, Iter last,
+                   std::vector<NodePtrType> &nodes) const {
+      for (; first != last; ++first) {
+        nodes.push_back(std::make_shared<NodeType>(*first, 0, 1));
+      }
+    }
+
+    /**
+     * Precondition: last - first > 0
+     */
+    template <typename Iter>
+    void assignSorted(Iter first, Iter last) {
+      std::vector<NodePtrType> allNodes;
+      this->fillNodes(first, last, allNodes);
+
+      std::vector<NodePtrType> nodes[2];
+
+#define NODE_GET(IDX) ((IDX) < nodes[1].size() ? nodes[1][IDX] : nullptr)
+      size_t start = 1;
+      size_t hjump = 2;
+      while (nodes[0].size() != 1) {
+        nodes[0].swap(nodes[1]);
+        nodes[0].clear();
+        size_t ctr = 0;
+        cerr << "New Set [start: " << start << "] [hjump: " << hjump << "]" << std::endl;
+
+        for (size_t i = start - 1; i < allNodes.size(); i += hjump) {
+          auto &nn = allNodes[i];
+          nn->left = NODE_GET(ctr); ctr++;
+          nn->right = NODE_GET(ctr); ctr++;
+          nn->subtreeSize = (nn->left ? nn->left->subtreeSize : 0) +
+            (nn->right ? nn->right->subtreeSize : 0) + 1;
+          cerr << nn->subtreeSize << ", ";
+          nodes[0].push_back(nn);
+        }
+        // Copy residual nodes from nodes[1] to nodes[0].
+        while (ctr < nodes[1].size()) {
+          nodes[0].push_back(nodes[1][ctr++]);
+        }
+        start *= 2;
+        hjump *= 2;
+        cerr << std::endl;
+      }
+#undef NODE_GET
+      this->root = nodes[0][0];
+      std::vector<int> allHeapKeys;
+      // Assign heap keys.
+      const int seed = 8271;
+      std::copy_n(RNGIterator(seed), this->size(),
+                  std::back_inserter(allHeapKeys));
+      std::transform(allHeapKeys.begin(), allHeapKeys.end(),
+                     allHeapKeys.begin(),
+                     [&] (int rno) { return rno % (this->size() * 12 + 1); });
+      std::sort(allHeapKeys.begin(), allHeapKeys.end());
+      auto heapKeysIt = allHeapKeys.begin();
+      this->levelorder(this->root, [&heapKeysIt] (int, NodePtrType &node) {
+          node->heapKey = *heapKeysIt;
+          ++heapKeysIt;
+        });
+    }
+
   public:
     Treap() : seed(6781) { }
     Treap(Treap const &rhs) {
@@ -480,6 +623,40 @@ namespace dhruvbird { namespace functional {
       this->root = rhs.root;
       this->seed = rhs.seed;
       return *this;
+    }
+    /**
+     * Bulk load from a possibly sorted set.
+     */
+    template <typename Iter>
+    Treap(Iter first, Iter last) : seed(6781) {
+      // Do we have at least 2 elements?
+      if (first == last) return;
+      auto f = first;
+      ++f;
+      if (f == last) {
+        // Single element
+        const int heapKey = rand_r(&this->seed) % (this->size() * 12 + 1);
+        this->root = std::make_shared<NodeType>(*f, heapKey, 1);
+        return;
+      }
+
+      // Invariant: last - first > 1.
+      //
+      // Check if input range is sorted.
+      if (std::adjacent_find(first, last,
+                             [] (typename Iter::value_type const &lhs,
+                                 typename Iter::value_type const &rhs) {
+                               return lhs > rhs;
+                             }) != last) {
+        // Unsorted: O(n log n)
+        for (; first != last; ++first) {
+          const int heapKey = rand_r(&this->seed) % (this->size() * 12 + 1);
+          this->root = this->insertNodeNoClone(std::make_shared<NodeType>(*first, heapKey, 1));
+        }
+      } else {
+        // Sorted: O(n)
+        this->assignSorted(first, last);
+      }
     }
 
     size_t size() const {

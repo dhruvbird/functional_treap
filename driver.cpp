@@ -123,7 +123,16 @@ int main() {
     cout << "[Count (" << 155 << "-" << 300 << "): "
 	 << t4.size(first, last) << "]" << endl;
 
-    t4.toDot(cout) << endl;
+    // t4.toDot(cout) << endl;
   }
+
+  Treap<int> t5(t4.begin(), t4.end());
+  cout << "[Size: " << t5.size() << "] ";
+  t5.print(cout) << std::endl;
+
+  std::vector<int> ints = { 98, 18, 19, 288, 1, 29, 12 };
+  Treap<int> t6(ints.begin(), ints.end());
+  cout << "[Size: " << t6.size() << "] ";
+  t6.print(cout) << std::endl;
 
 }
