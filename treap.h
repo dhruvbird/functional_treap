@@ -159,7 +159,7 @@ namespace dhruvbird { namespace functional {
   };
 
   template <typename T, typename LessThan=std::less<T> >
-  class TreapIterator : public std::iterator<std::bidirectional_iterator_tag, const T> {
+  class TreapIterator : public std::iterator<std::random_access_iterator_tag, const T> {
     typedef TreapNode<T> NodeType;
     typedef std::shared_ptr<NodeType> NodePtrType;
     typedef std::vector<NodePtrType> PtrsType;
@@ -186,6 +186,51 @@ namespace dhruvbird { namespace functional {
      */
     PtrsType const& getRootToNodePtrs() const {
       return this->ptrs;
+    }
+
+    size_t rank() const {
+      if (!this->root) return 0;
+      if (this->ptrs.empty()) {
+        /* This is the end() iterator */
+        return this->root->subtreeSize;
+      }
+
+      /* Stores the # of elements >= *this */
+      size_t count = 0;
+      count = ptrs[0]->subtreeSize;
+      for (size_t i = 1; i < ptrs.size(); ++i) {
+        if (ptrs[i]->isRightChildOf(ptrs[i-1])) {
+          // Everything to the right is kosher.
+          count -= ptrs[i-1]->subtreeSize;
+          count += ptrs[i]->subtreeSize;
+        }
+      }
+      count -= (ptrs.back()->left ? ptrs.back()->left->subtreeSize : 0);
+      return root->subtreeSize - count;
+    }
+
+    void moveToRank(const size_t rank) {
+      assert(rank > 0 && this->root || rank == 0);
+      if (!this->root) return;
+      assert(rank <= this->root->subtreeSize);
+      if (rank == this->root->subtreeSize) {
+        // Move to end()
+        this->ptrs.clear();
+        return;
+      }
+      PtrsType path(1, this->root);
+      size_t currRank = this->root->left ? this->root->left->subtreeSize : 0;
+      while (currRank != rank) {
+        if (currRank < rank) {
+          path.push_back(path.back()->right);
+          currRank += 1;
+        } else {
+          path.push_back(path.back()->left);
+          currRank -= path.back()->subtreeSize;
+        }
+        currRank += path.back()->left ? path.back()->left->subtreeSize : 0;
+      }
+      ptrs = std::move(path);
     }
 
   public:
@@ -271,6 +316,31 @@ namespace dhruvbird { namespace functional {
       TreapIterator it = *this;
       --*this;
       return it;
+    }
+
+    TreapIterator& operator+=(const off_t offset) const {
+      this->moveToRank(static_cast<off_t>(this->rank()) + offset);
+      return *this;
+    }
+
+    TreapIterator& operator-=(const off_t offset) const {
+      this->moveToRank(static_cast<off_t>(this->rank()) - offset);
+      return *this;
+    }
+
+    /**
+     * Cost: O(log n)
+     */
+    off_t operator-(TreapIterator const& other) const {
+      const off_t otherRank = other.rank();
+      const off_t thisRank = this->rank();
+      return thisRank - otherRank;
+    }
+
+    T const& operator[](off_t offset) const {
+      auto other = *this;
+      other += offset;
+      return *other;
     }
 
     T const& operator*() const {
@@ -663,11 +733,6 @@ namespace dhruvbird { namespace functional {
       return this->root ? this->root->subtreeSize : 0;
     }
 
-    size_t size(iterator const &first, iterator const &last) const {
-      // cout << "countGte: " << countGte(first) << ", " << countGte(last) << endl;
-      return this->countGte(first) - this->countGte(last);
-    }
-
     Treap insert(T const &data) const {
       Treap newTreap(*this);
       auto _seed = this->seed;
@@ -839,12 +904,12 @@ namespace dhruvbird { namespace functional {
     typedef typename impl_type::const_iterator const_iterator;
     typedef T value_type;
 
+    template <typename Iter>
+    MockTreap(Iter first, Iter last)
+      : impl(first, last) { }
+
     size_t size() const {
       return this->impl.size();
-    }
-
-    size_t size(iterator const &first, iterator const &last) const {
-      return std::distance(first, last);
     }
 
     MockTreap insert(T const &data) const {
