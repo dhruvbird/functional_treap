@@ -63,9 +63,10 @@ namespace dhruvbird { namespace functional {
   void rotateLeft(std::shared_ptr<TreapNode<T> > &node,
                   std::shared_ptr<TreapNode<T> > &parent,
                   std::shared_ptr<TreapNode<T> > &grandParent) {
+#if 0
     fprintf(stderr, "rotateLeft(%d[%d], %d[%d])\n", node->data, node->heapKey,
       parent->data, parent->heapKey);
-
+#endif
     assert(node->isRightChildOf(parent));
     auto nLeft = node->left;
     node->left = parent;
@@ -87,8 +88,10 @@ namespace dhruvbird { namespace functional {
   void rotateRight(std::shared_ptr<TreapNode<T> > &node,
                    std::shared_ptr<TreapNode<T> > &parent,
                    std::shared_ptr<TreapNode<T> > &grandParent) {
+#if 0
     fprintf(stderr, "rotateRight(%d[%d], %d[%d])\n", node->data, node->heapKey,
       parent->data, parent->heapKey);
+#endif
     assert(node->isLeftChildOf(parent));
     auto nRight = node->right;
     node->right = parent;
@@ -491,11 +494,18 @@ namespace dhruvbird { namespace functional {
       } else if (!newRoot->left) {
         newRoot = newRoot->right;
       } else {
-        Treap t(this->root);
+        newRoot = this->root->clone();
+        auto leftChild = newRoot->left;
+        newRoot->left = nullptr;
+        auto rightChild = newRoot->right;
+        Treap t(rightChild);
         auto parts = t.deleteAndGetBegin();
-        parts.first->left = this->root->left;
+        parts.first->left = leftChild;
         parts.first->right = parts.second;
         newRoot = parts.first;
+        // Set subtreeSize and heapKey for 'newRoot'
+        newRoot->subtreeSize = this->root->subtreeSize - 1;
+        newRoot->heapKey = this->root->heapKey;
       }
       return newRoot;
     }
@@ -646,7 +656,9 @@ namespace dhruvbird { namespace functional {
         nodes[0].swap(nodes[1]);
         nodes[0].clear();
         size_t ctr = 0;
-        cerr << "New Set [start: " << start << "] [hjump: " << hjump << "]" << std::endl;
+#if 0
+        fprintf(stderr, "New Set [start: %d] [hjump: %d]\n", start, hjump);
+#endif
 
         for (size_t i = start - 1; i < allNodes.size(); i += hjump) {
           auto &nn = allNodes[i];
@@ -654,7 +666,7 @@ namespace dhruvbird { namespace functional {
           nn->right = NODE_GET(ctr); ctr++;
           nn->subtreeSize = (nn->left ? nn->left->subtreeSize : 0) +
             (nn->right ? nn->right->subtreeSize : 0) + 1;
-          cerr << nn->subtreeSize << ", ";
+          // cerr << nn->subtreeSize << ", ";
           nodes[0].push_back(nn);
         }
         // Copy residual nodes from nodes[1] to nodes[0].
@@ -663,7 +675,7 @@ namespace dhruvbird { namespace functional {
         }
         start *= 2;
         hjump *= 2;
-        cerr << std::endl;
+        // cerr << std::endl;
       }
 #undef NODE_GET
       this->root = nodes[0][0];
@@ -731,6 +743,10 @@ namespace dhruvbird { namespace functional {
 
     size_t size() const {
       return this->root ? this->root->subtreeSize : 0;
+    }
+
+    bool empty() const {
+      return this->root ? false : true;
     }
 
     Treap insert(T const &data) const {
@@ -904,6 +920,8 @@ namespace dhruvbird { namespace functional {
     typedef typename impl_type::const_iterator const_iterator;
     typedef T value_type;
 
+    MockTreap() { }
+
     template <typename Iter>
     MockTreap(Iter first, Iter last)
       : impl(first, last) { }
@@ -914,17 +932,23 @@ namespace dhruvbird { namespace functional {
 
     MockTreap insert(T const &data) const {
       MockTreap other(*this);
-      other.insert(data);
+      other.impl.insert(data);
+      return other;
+    }
+
+    MockTreap erase(iterator it) const {
+      MockTreap other(*this);
+      other.impl.swap(this->impl);
+      other.impl.erase(it);
       return other;
     }
 
     MockTreap erase(T const &key) const {
-      MockTreap other(*this);
       auto it = this->find(key);
       if (it != this->end()) {
-        other.erase(it);
+        return this->erase(it);
       }
-      return other;
+      return *this;
     }
 
     bool exists(T const &key) const {
