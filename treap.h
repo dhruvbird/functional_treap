@@ -115,9 +115,10 @@ namespace dhruvbird { namespace functional {
                 std::shared_ptr<TreapNode<T> > &grandParent) {
     assert(node->isLeftChildOf(parent) || node->isRightChildOf(parent));
 #if !defined NDEBUG
+    // Note: Comparators are broken here.
     if (node->data < parent->data) {
       assert(node->isLeftChildOf(parent));
-    } else if (node->data > parent->data) {
+    } else if (parent->data < node->data) {
       assert(node->isRightChildOf(parent));
     }
 #endif
@@ -689,7 +690,7 @@ namespace dhruvbird { namespace functional {
                      [&] (int rno) { return rno % (this->size() * 12 + 1); });
       std::sort(allHeapKeys.begin(), allHeapKeys.end());
       auto heapKeysIt = allHeapKeys.begin();
-      this->levelorder(this->root, [&heapKeysIt] (int, NodePtrType &node) {
+      this->levelorder(this->root, [&heapKeysIt] (T const&, NodePtrType &node) {
           node->heapKey = *heapKeysIt;
           ++heapKeysIt;
         });
@@ -728,7 +729,7 @@ namespace dhruvbird { namespace functional {
       if (std::adjacent_find(first, last,
                              [] (typename Iter::value_type const &lhs,
                                  typename Iter::value_type const &rhs) {
-                               return lhs > rhs;
+                               return LessThan()(rhs, lhs);
                              }) != last) {
         // Unsorted: O(n log n)
         for (; first != last; ++first) {

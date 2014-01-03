@@ -167,8 +167,43 @@ void test_deletion() {
     }
 }
 
+void test_update() {
+    struct KeyValue {
+        string key;
+        string value;
+        KeyValue(string _k, string _v)
+            : key(_k), value(_v) { }
+        bool operator<(KeyValue const &other) const {
+            return this->key < other.key;
+        }
+    };
+
+    vector<KeyValue> seq;
+    seq.emplace_back("github", "source control");
+    seq.emplace_back("duck duck go", "web search");
+    seq.emplace_back("google", "web search");
+    seq.emplace_back("facebook", "social network");
+    seq.emplace_back("twitter", "social network");
+
+    Treap<KeyValue> t(seq.begin(), seq.end());
+    MockTreap<KeyValue> mt(seq.begin(), seq.end());
+
+    vector<KeyValue> seq2;
+    seq2.emplace_back("facebook", "cab service");
+    seq2.emplace_back("duck duck go", "operating system");
+
+    for (auto &elem : seq2) {
+        t = t.update(KeyValue(elem.key, ""), elem);
+        mt = mt.update(KeyValue(elem.key, ""), elem);
+        assert(t.find(elem) != t.end());
+        assert(mt.find(elem) != mt.end());
+        assert(t.find(elem)->value == mt.find(elem)->value);
+    }
+}
+
 int main() {
     test_construct();
     test_insertion();
     test_deletion();
+    test_update();
 }
