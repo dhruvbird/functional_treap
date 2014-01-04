@@ -201,9 +201,41 @@ void test_update() {
     }
 }
 
+void test_count() {
+    vector<int> seq = { 73, 23, 43, 83, 13, 3, 23, 23, 43, 33, 63, 33, 93, 3 };
+    Treap<int> t(seq.begin(), seq.end());
+    MockTreap<int> mt(seq.begin(), seq.end());
+
+    assert(t.size() == mt.size());
+    assert(std::equal(t.begin(), t.end(), mt.begin()));
+    assert(std::equal(mt.begin(), mt.end(), t.begin()));
+
+    for (auto &elem : seq) {
+        assert(t.count(elem) == mt.count(elem));
+    }
+}
+
+void test_iterators() {
+    vector<int> seq = { 73, 23, 43, 83, 13, 3, 23, 23, 43, 33, 63, 33, 93, 3 };
+    Treap<int> t(seq.begin(), seq.end());
+    MockTreap<int> mt(seq.begin(), seq.end());
+
+    assert(t.size() == mt.size());
+    assert(std::equal(t.begin(), t.end(), mt.begin()));
+    assert(std::equal(mt.begin(), mt.end(), t.begin()));
+
+    auto it = t.begin();
+    int ctr = 0;
+    for (auto mit = mt.begin(); mit != mt.end(); ++mit, ++ctr) {
+        assert(*mit == it[ctr]);
+    }
+}
+
 int main() {
     test_construct();
     test_insertion();
     test_deletion();
     test_update();
+    test_count();
+    test_iterators();
 }

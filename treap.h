@@ -334,12 +334,12 @@ namespace dhruvbird { namespace functional {
       return it;
     }
 
-    TreapIterator& operator+=(const off_t offset) const {
+    TreapIterator& operator+=(const off_t offset) {
       this->moveToRank(static_cast<off_t>(this->rank()) + offset);
       return *this;
     }
 
-    TreapIterator& operator-=(const off_t offset) const {
+    TreapIterator& operator-=(const off_t offset) {
       this->moveToRank(static_cast<off_t>(this->rank()) - offset);
       return *this;
     }
