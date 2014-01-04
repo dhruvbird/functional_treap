@@ -205,7 +205,14 @@ namespace dhruvbird { namespace functional {
         return this->root->subtreeSize;
       }
 
-      /* Stores the # of elements >= *this */
+      /* Stores the # of elements >= *this.
+       *
+       * At every step of the for loop, 'count' stores the number of
+       * nodes >= ptrs[i] plus the count of the elements under the
+       * left child of ptrs[i]. To compensate for the excess
+       * (left-child counts), we subtract this value right at the end.
+       *
+       */
       size_t count = 0;
       count = ptrs[0]->subtreeSize;
       for (size_t i = 1; i < ptrs.size(); ++i) {
@@ -676,24 +683,6 @@ namespace dhruvbird { namespace functional {
 
     Treap(NodePtrType _root) :
       root(_root), seed(_treap_random_seed) { }
-
-    size_t countGte(iterator const &it) const {
-      size_t count = 0;
-      auto const &ptrs = it.getRootToNodePtrs();
-      if (ptrs.empty()) {
-        return 0;
-      }
-      count = ptrs[0]->subtreeSize;
-      for (size_t i = 1; i < ptrs.size(); ++i) {
-        if (ptrs[i]->isRightChildOf(ptrs[i-1])) {
-          // Everything to the right is kosher.
-          count -= ptrs[i-1]->subtreeSize;
-          count += ptrs[i]->subtreeSize;
-        }
-      }
-      count -= (ptrs.back()->left ? ptrs.back()->left->subtreeSize : 0);
-      return count;
-    }
 
     template <typename Iter>
     void fillNodes(Iter first, Iter last,
