@@ -19,6 +19,8 @@ namespace dhruvbird { namespace functional {
     LEFT, RIGHT
   };
 
+  const int _treap_random_seed = 6781;
+
   template <typename T, typename LessThan>
   class Treap;
 
@@ -192,6 +194,10 @@ namespace dhruvbird { namespace functional {
       return this->ptrs;
     }
 
+    /**
+     * Returns the rank of the iterator '*this'. i.e. It returns the
+     * number of elements < the element pointed to by '*this'.
+     */
     size_t rank() const {
       if (!this->root) return 0;
       if (this->ptrs.empty()) {
@@ -210,9 +216,15 @@ namespace dhruvbird { namespace functional {
         }
       }
       count -= (ptrs.back()->left ? ptrs.back()->left->subtreeSize : 0);
+      // Return # of elements < *this
       return root->subtreeSize - count;
     }
 
+    /**
+     * Moves the current iterator to point to the rank'th
+     * element. Ranks start from 0. The k'th element is the k'th
+     * smallest element in the treap.
+     */
     void moveToRank(const size_t rank) {
       assert(rank > 0 && this->root || rank == 0);
       if (!this->root) return;
@@ -342,6 +354,7 @@ namespace dhruvbird { namespace functional {
     }
 
     T const& operator[](off_t offset) const {
+      if (offset == 0) return **this;
       auto other = *this;
       other += offset;
       return *other;
@@ -365,6 +378,31 @@ namespace dhruvbird { namespace functional {
 
   };
 
+  /**
+   * This is an implementation of a functional treap data
+   * structure. Every mutating operation (insert/delete/update)
+   * doesn't mutate the existing treap, but instead returns a new copy
+   * of the treap, with the mutation applied. This means that every
+   * mutating operation on a treap *must* capture the return value
+   * since that is the latest version of the treap.
+   *
+   * Since no existing version is mutated, it is entirely safe to
+   * perform operations concurrently on your copy of the treap from
+   * multiple threads. A treap internally holds an std::shared_ptr<>
+   * to the root node. This automatically reclaims memory for unused
+   * (past) versions of the treap, so memory management isn't an
+   * issue.
+   *
+   * This treap also provides _random access iterators_ (you heard
+   * that right!) that cost O(log n) per random
+   * increment/decrement. Incrementing using operator++/-- is O(1)
+   * amortized, but incrementing/decrementing by 1 using operator+=/-=
+   * is not (and costs O(log n) per increment/decrement). This is a
+   * design decision. Using the random access iterator, you can
+   * (quickly) perform operations like computing the number of
+   * elements between 2 given iterators.
+   *
+   */
   template <typename T, typename LessThan=std::less<T> >
   class Treap {
     typedef TreapNode<T> NodeType;
@@ -378,6 +416,13 @@ namespace dhruvbird { namespace functional {
     typedef T value_type;
 
   private:
+    /**
+     * Inserts a new node 'node' into the tree rooted at this->root,
+     * and returns a pointer to the new root. The existing tree is
+     * un-modified, and a new root to node path is created. Nodes that
+     * are unchanged are shared between the older and the newer tree.
+     *
+     */
     NodePtrType insertNode(NodePtrType node) const {
       if (!root.get()) {
         return node;
@@ -432,6 +477,12 @@ namespace dhruvbird { namespace functional {
       return ptrs[0];
     }
 
+    /**
+     * Inserts a new node 'node' into the tree rooted at this->root,
+     * and returns a pointer to the new root. The existing tree is
+     * *modified*.
+     *
+     */
     NodePtrType insertNodeNoClone(NodePtrType node) const {
       if (!root.get()) {
         return node;
@@ -471,6 +522,12 @@ namespace dhruvbird { namespace functional {
       return ptrs[0];
     }
 
+    /**
+     * Clone the path present in 'ptrs' and return a list of cloned
+     * nodes with their left and right pointers set to the new nodes
+     * (if appropriate).
+     *
+     */
     std::vector<NodePtrType>
     clonePtrs(std::vector<NodePtrType> const &ptrs) const {
       std::vector<NodePtrType> clonedPtrs;
@@ -488,6 +545,12 @@ namespace dhruvbird { namespace functional {
       return clonedPtrs;
     }
 
+    /**
+     * Delete the current tree's root node and return a pointer to the
+     * new root node. Uses path copying to copy the root ro node path,
+     * and the older tree remains unmodified.
+     *
+     */
     NodePtrType deleteRootNode() const {
       auto newRoot = this->root;
       if (!newRoot->right) {
@@ -612,7 +675,7 @@ namespace dhruvbird { namespace functional {
     }
 
     Treap(NodePtrType _root) :
-      root(_root), seed(6781) { }
+      root(_root), seed(_treap_random_seed) { }
 
     size_t countGte(iterator const &it) const {
       size_t count = 0;
@@ -697,11 +760,12 @@ namespace dhruvbird { namespace functional {
     }
 
   public:
-    Treap() : seed(6781) { }
+    Treap() : seed(_treap_random_seed) { }
     Treap(Treap const &rhs) {
       this->root = rhs.root;
       this->seed = rhs.seed;
     }
+    /* No MOVE semantics since this is an immutable data structure. */
     Treap& operator=(Treap const &rhs) {
       this->root = rhs.root;
       this->seed = rhs.seed;
@@ -711,7 +775,7 @@ namespace dhruvbird { namespace functional {
      * Bulk load from a possibly sorted set.
      */
     template <typename Iter>
-    Treap(Iter first, Iter last) : seed(6781) {
+    Treap(Iter first, Iter last) : seed(_treap_random_seed) {
       // Do we have at least 2 elements?
       if (first == last) return;
       auto f = first;
@@ -759,12 +823,21 @@ namespace dhruvbird { namespace functional {
       return newTreap;
     }
 
+    /**
+     * Erases the first found element with KEY == key. Returns a new
+     * treap with the element removed. The first found element isn't
+     * necessarily the first element inserted with KEY == key.
+     */
     Treap erase(T const &key) const {
       Treap newTreap(*this);
       newTreap.root = newTreap.deleteKey(key);
       return newTreap;
     }
 
+    /**
+     * Erases the element pointed to by iterator 'it'. Returns a new
+     * treap with the element removed.
+     */
     Treap erase(iterator const &it) const {
       assert(it != this->end());
       assert(it.root == this->root);
@@ -859,6 +932,18 @@ namespace dhruvbird { namespace functional {
       return this->end();
     }
 
+    /**
+     * Count the number of elements with KEY == key.
+     *
+     * Complexity: O(log n)
+     *
+     */
+    size_t count(T const& key) const {
+      iterator first = this->lower_bound(key);
+      iterator last = this->upper_bound(key);
+      return last - first;
+    }
+
     std::ostream& print(std::ostream &out) const {
       this->for_each([&out](T const &data, NodePtrType node) {
           out << data << ", ";
@@ -866,6 +951,14 @@ namespace dhruvbird { namespace functional {
       return out;
     }
 
+    /**
+     * Print a graphviz consumable tree representation of this
+     * treap. Values in parenthesis represent heap keys and
+     * subtree-sizes.
+     *
+     * Node format: Key(heapKey,subtreeSize)
+     *
+     */
     std::ostream& toDot(std::ostream &out) const {
       out << "digraph Treap {\n";
       this->for_each([&out](T const &data, NodePtrType node) {
@@ -890,6 +983,10 @@ namespace dhruvbird { namespace functional {
       return out;
     }
 
+    /**
+     * Apply function 'f' to every element in the treap (in sorted
+     * order).
+     */
     template <typename Func>
     void for_each(Func f) const {
       this->inorder(this->root, f);
@@ -976,6 +1073,10 @@ namespace dhruvbird { namespace functional {
 
     iterator find(T const &key) const {
       return this->impl.find(key);
+    }
+
+    size_t count(T const& key) const {
+      return this->impl.count(key);
     }
 
     template <typename Func>
