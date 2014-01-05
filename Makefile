@@ -5,3 +5,9 @@ driver: driver.cpp treap.h
 
 test: test.cpp treap.h
 	g++ -std=c++0x -g test.cpp -o test
+
+runtest: test
+	./test
+
+clean:
+	rm -f test driver

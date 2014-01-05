@@ -632,8 +632,10 @@ namespace dhruvbird { namespace functional {
         succPtr->subtreeSize = (succPtr->left ? succPtr->left->subtreeSize : 0) +
           (succPtr->right ? succPtr->right->subtreeSize : 0) + 1;
 
-        // FIXME: succPtr->heapKey
-        succPtr->heapKey = parPtr->heapKey;
+        // succPtr->heapKey is to be set to the previous heap key of
+        // the deleted node. This means that we don't need to perform
+        // any more rotations to restore the heap property.
+        succPtr->heapKey = delPtr->heapKey;
 
         if (delPtr->isLeftChildOf(parPtr)) {
           parPtr->left = succPtr;
@@ -771,7 +773,7 @@ namespace dhruvbird { namespace functional {
       ++f;
       if (f == last) {
         // Single element
-        const int heapKey = rand_r(&this->seed) % (this->size() * 12 + 1);
+        const int heapKey = rand_r(&this->seed) % (12 + 1);
         this->root = std::make_shared<NodeType>(*f, heapKey, 1);
         return;
       }
